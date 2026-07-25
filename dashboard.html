@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamo Zone Landslide Early Warning — Daily Nowcast</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --basalt: #1c231f;
+    --basalt-2: #242c26;
+    --panel: #2a332c;
+    --line: #3a453c;
+    --ivory: #eee7d6;
+    --ivory-dim: #b9b5a4;
+    --moss: #7fa66f;
+    --amber: #d9a544;
+    --burnt: #c1622b;
+    --deepred: #8c3232;
+    --sky: #6f97a3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--basalt); color:var(--ivory);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+  header{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:14px; border-bottom:1px solid var(--line); padding-bottom:18px; margin-bottom:22px;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--sky);}
+  h1{font-family:'Fraunces',serif; font-weight:600; font-size:clamp(24px,3.4vw,36px); margin:6px 0 4px; line-height:1.05;}
+  .sub{color:var(--ivory-dim); font-size:14.5px; max-width:560px;}
+  .badge{font-family:'IBM Plex Mono',monospace; font-size:11px; padding:5px 10px; border:1px solid var(--line); border-radius:20px; color:var(--ivory-dim);}
+
+  .demo-note{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--sky); border-radius:6px; padding:12px 16px; font-size:13.5px; color:var(--ivory-dim); margin-bottom:24px;}
+  .demo-note b{color:var(--ivory);}
+
+  .controls{display:flex; align-items:center; gap:16px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin-bottom:20px; flex-wrap:wrap;}
+  .controls .date-display{font-family:'Fraunces',serif; font-size:20px; min-width:150px;}
+  .controls input[type=range]{flex:1; min-width:180px; accent-color:var(--amber);}
+  .play-btn{background:var(--basalt-2); border:1px solid var(--line); color:var(--ivory); border-radius:6px; padding:8px 14px; cursor:pointer; font-family:'Inter',sans-serif; font-size:13px;}
+  .play-btn:hover{border-color:var(--amber);}
+
+  .grid{display:grid; grid-template-columns:1.5fr 1fr; gap:18px;}
+  @media (max-width:860px){.grid{grid-template-columns:1fr;}}
+
+  #map{height:420px; border-radius:10px; border:1px solid var(--line); background:var(--panel);}
+
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 18px;}
+  .panel h2{font-family:'Fraunces',serif; font-weight:600; font-size:16px; margin:0 0 12px; color:var(--ivory);}
+
+  .site-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .site-row:last-child{border-bottom:none;}
+  .site-name{font-weight:500;}
+  .site-meta{color:var(--ivory-dim); font-size:11.5px; font-family:'IBM Plex Mono',monospace;}
+  .risk-pill{font-family:'IBM Plex Mono',monospace; font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:600; letter-spacing:.03em; white-space:nowrap;}
+
+  .r-low{background:rgba(127,166,111,.18); color:var(--moss); border:1px solid rgba(127,166,111,.4);}
+  .r-medium{background:rgba(217,165,68,.18); color:var(--amber); border:1px solid rgba(217,165,68,.4);}
+  .r-high{background:rgba(193,98,43,.18); color:var(--burnt); border:1px solid rgba(193,98,43,.45);}
+  .r-veryhigh{background:rgba(140,50,50,.22); color:#e08a8a; border:1px solid rgba(140,50,50,.5);}
+
+  .rain-chart{margin-top:22px;}
+  .rain-chart svg{width:100%; height:110px; display:block;}
+  .rain-label{font-size:11px; color:var(--ivory-dim); font-family:'IBM Plex Mono',monospace; margin-bottom:6px;}
+
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:16px; font-size:11.5px; color:var(--ivory-dim);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .dot{width:9px; height:9px; border-radius:50%; display:inline-block;}
+
+  .outlook{margin-top:22px; padding-top:20px; border-top:1px solid var(--line);}
+  .outlook-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:14px;}
+  @media (max-width:700px){.outlook-grid{grid-template-columns:1fr;}}
+  .outlook-card{background:var(--basalt-2); border:1px dashed var(--line); border-radius:8px; padding:14px;}
+  .outlook-card .yr{font-family:'Fraunces',serif; font-size:22px; color:var(--sky);}
+  .outlook-card p{font-size:12.5px; color:var(--ivory-dim); margin:6px 0 0;}
+
+  footer{margin-top:30px; font-size:12px; color:var(--ivory-dim); border-top:1px solid var(--line); padding-top:16px;}
+  a{color:var(--sky);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Gamo Zone · Ethiopia — Prototype</div>
+      <h1>Daily Landslide Risk Nowcast</h1>
+      <div class="sub">Fixed engineering parameters (slope, soil, geology) combined with daily rainfall to estimate landslide risk, site by site, every day.</div>
+    </div>
+    <div class="badge">SAMPLE DATA — 30 simulated days</div>
+  </header>
+
+  <div class="demo-note">
+    <b>This is a working demo, not live data.</b> Rainfall here is randomly simulated (with one storm built in around day 15-19) so you can see the full pipeline &mdash; constant susceptibility + changing daily rain &rarr; daily risk &mdash; running end to end. In a real deployment, the rainfall values would come from CHIRPS or IMERG automatically each day.
+  </div>
+
+  <div class="controls">
+    <div class="date-display" id="dateDisplay">-</div>
+    <input type="range" id="daySlider" min="0" max="29" value="0" step="1">
+    <button class="play-btn" id="playBtn">Play 30 days</button>
+  </div>
+
+  <div class="grid">
+    <div id="map"></div>
+
+    <div class="panel">
+      <h2>Site risk today</h2>
+      <div id="siteList"></div>
+      <div class="legend">
+        <span><span class="dot" style="background:#7fa66f"></span>Low</span>
+        <span><span class="dot" style="background:#d9a544"></span>Medium</span>
+        <span><span class="dot" style="background:#c1622b"></span>High</span>
+        <span><span class="dot" style="background:#e08a8a"></span>Very High</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel rain-chart" style="margin-top:18px;">
+    <h2 id="chartTitle">Rainfall and risk over the 30-day window</h2>
+    <div class="rain-label">Bars = daily rainfall (mm) - Line = risk score (0-1) - click a site on the map or list to inspect it</div>
+    <svg id="rainSvg" viewBox="0 0 900 160" preserveAspectRatio="none"></svg>
+  </div>
+
+  <div class="panel outlook">
+    <h2>Beyond tomorrow: the 30-year outlook</h2>
+    <div class="sub" style="margin-top:0;">The daily view above answers "what's the risk today?" A separate, slower-moving layer answers "how is risk shifting over decades?" - same susceptibility model, but driven by downscaled climate projections (CORDEX-Africa / CMIP6) instead of daily satellite rainfall, and refreshed yearly rather than daily.</div>
+    <div class="outlook-grid">
+      <div class="outlook-card"><div class="yr">2030s</div><p>Baseline projected rainfall intensity, Gamo highlands</p></div>
+      <div class="outlook-card"><div class="yr">2050s</div><p>Mid-range emissions scenario, wet-season intensification</p></div>
+      <div class="outlook-card"><div class="yr">2080s+</div><p>Long-range scenario range - not modeled in this sample</p></div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype built with sample data for demonstration purposes. Real deployment would replace simulated rainfall with CHIRPS/IMERG feeds and update automatically via a scheduled job. Susceptibility values are illustrative, not surveyed.
+  </footer>
+</div>
+
+<script>
+const DATA = [{"date":"2026-06-25","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":7.6,"antecedent_3day_mm":7.6,"risk_score":0.416,"risk_level":"Medium"},{"date":"2026-06-26","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":7.3,"antecedent_3day_mm":14.9,"risk_score":0.44,"risk_level":"Medium"},{"date":"2026-06-27","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":0.5,"antecedent_3day_mm":15.4,"risk_score":0.442,"risk_level":"Medium"},{"date":"2026-06-28","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":4.7,"antecedent_3day_mm":12.5,"risk_score":0.432,"risk_level":"Medium"},{"date":"2026-06-29","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":4.3,"antecedent_3day_mm":9.5,"risk_score":0.422,"risk_level":"Medium"},{"date":"2026-06-30","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":1.5,"antecedent_3day_mm":10.5,"risk_score":0.425,"risk_level":"Medium"},{"date":"2026-07-01","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":4.3,"antecedent_3day_mm":10.1,"risk_score":0.424,"risk_level":"Medium"},{"date":"2026-07-02","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":1.4,"antecedent_3day_mm":7.2,"risk_score":0.414,"risk_level":"Medium"},{"date":"2026-07-03","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":3.6,"antecedent_3day_mm":9.3,"risk_score":0.421,"risk_level":"Medium"},{"date":"2026-07-04","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":7.5,"antecedent_3day_mm":12.5,"risk_score":0.432,"risk_level":"Medium"},{"date":"2026-07-05","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":6.5,"antecedent_3day_mm":17.6,"risk_score":0.449,"risk_level":"Medium"},{"date":"2026-07-06","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":0.7,"antecedent_3day_mm":14.7,"risk_score":0.44,"risk_level":"Medium"},{"date":"2026-07-07","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":4.6,"antecedent_3day_mm":11.8,"risk_score":0.43,"risk_level":"Medium"},{"date":"2026-07-08","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":7.5,"antecedent_3day_mm":12.8,"risk_score":0.433,"risk_level":"Medium"},{"date":"2026-07-09","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":39.8,"antecedent_3day_mm":51.9,"risk_score":0.565,"risk_level":"High"},{"date":"2026-07-10","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":38.8,"antecedent_3day_mm":86.1,"risk_score":0.681,"risk_level":"High"},{"date":"2026-07-11","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":36.0,"antecedent_3day_mm":114.6,"risk_score":0.777,"risk_level":"Very High"},{"date":"2026-07-12","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":37.0,"antecedent_3day_mm":111.8,"risk_score":0.768,"risk_level":"Very High"},{"date":"2026-07-13","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":49.1,"antecedent_3day_mm":122.1,"risk_score":0.803,"risk_level":"Very High"},{"date":"2026-07-14","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":3.8,"antecedent_3day_mm":89.9,"risk_score":0.694,"risk_level":"High"},{"date":"2026-07-15","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":5.5,"antecedent_3day_mm":58.4,"risk_score":0.587,"risk_level":"High"},{"date":"2026-07-16","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":7.3,"antecedent_3day_mm":16.6,"risk_score":0.446,"risk_level":"Medium"},{"date":"2026-07-17","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":4.1,"antecedent_3day_mm":16.9,"risk_score":0.447,"risk_level":"Medium"},{"date":"2026-07-18","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":5.1,"antecedent_3day_mm":16.5,"risk_score":0.446,"risk_level":"Medium"},{"date":"2026-07-19","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":3.2,"antecedent_3day_mm":12.4,"risk_score":0.432,"risk_level":"Medium"},{"date":"2026-07-20","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":6.3,"antecedent_3day_mm":14.6,"risk_score":0.439,"risk_level":"Medium"},{"date":"2026-07-21","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":5.8,"antecedent_3day_mm":15.3,"risk_score":0.442,"risk_level":"Medium"},{"date":"2026-07-22","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":2.7,"antecedent_3day_mm":14.8,"risk_score":0.44,"risk_level":"Medium"},{"date":"2026-07-23","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":2.8,"antecedent_3day_mm":11.3,"risk_score":0.428,"risk_level":"Medium"},{"date":"2026-07-24","site_id":"GM01","site_name":"Chencha Town","lat":6.2833,"lon":37.5667,"susceptibility":0.78,"today_rainfall_mm":1.6,"antecedent_3day_mm":7.1,"risk_score":0.414,"risk_level":"Medium"},{"date":"2026-06-25","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":3.2,"antecedent_3day_mm":3.2,"risk_score":0.437,"risk_level":"Medium"},{"date":"2026-06-26","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":1.7,"antecedent_3day_mm":4.9,"risk_score":0.443,"risk_level":"Medium"},{"date":"2026-06-27","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":4.5,"antecedent_3day_mm":9.4,"risk_score":0.46,"risk_level":"Medium"},{"date":"2026-06-28","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":0.4,"antecedent_3day_mm":6.6,"risk_score":0.449,"risk_level":"Medium"},{"date":"2026-06-29","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":4.6,"antecedent_3day_mm":9.5,"risk_score":0.46,"risk_level":"Medium"},{"date":"2026-06-30","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":0.8,"antecedent_3day_mm":5.8,"risk_score":0.446,"risk_level":"Medium"},{"date":"2026-07-01","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":6.2,"antecedent_3day_mm":11.6,"risk_score":0.468,"risk_level":"Medium"},{"date":"2026-07-02","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":6.2,"antecedent_3day_mm":13.2,"risk_score":0.474,"risk_level":"Medium"},{"date":"2026-07-03","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":4.9,"antecedent_3day_mm":17.3,"risk_score":0.489,"risk_level":"Medium"},{"date":"2026-07-04","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":3.4,"antecedent_3day_mm":14.5,"risk_score":0.478,"risk_level":"Medium"},{"date":"2026-07-05","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":2.7,"antecedent_3day_mm":11.0,"risk_score":0.466,"risk_level":"Medium"},{"date":"2026-07-06","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":2.2,"antecedent_3day_mm":8.3,"risk_score":0.456,"risk_level":"Medium"},{"date":"2026-07-07","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":5.4,"antecedent_3day_mm":10.3,"risk_score":0.463,"risk_level":"Medium"},{"date":"2026-07-08","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":2.8,"antecedent_3day_mm":10.4,"risk_score":0.463,"risk_level":"Medium"},{"date":"2026-07-09","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":44.7,"antecedent_3day_mm":52.9,"risk_score":0.62,"risk_level":"High"},{"date":"2026-07-10","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":24.8,"antecedent_3day_mm":72.3,"risk_score":0.691,"risk_level":"High"},{"date":"2026-07-11","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":51.1,"antecedent_3day_mm":120.6,"risk_score":0.869,"risk_level":"Very High"},{"date":"2026-07-12","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":37.9,"antecedent_3day_mm":113.8,"risk_score":0.844,"risk_level":"Very High"},{"date":"2026-07-13","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":27.8,"antecedent_3day_mm":116.8,"risk_score":0.855,"risk_level":"Very High"},{"date":"2026-07-14","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":2.5,"antecedent_3day_mm":68.2,"risk_score":0.676,"risk_level":"High"},{"date":"2026-07-15","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":4.1,"antecedent_3day_mm":34.4,"risk_score":0.552,"risk_level":"High"},{"date":"2026-07-16","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":6.1,"antecedent_3day_mm":12.7,"risk_score":0.472,"risk_level":"Medium"},{"date":"2026-07-17","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":7.3,"antecedent_3day_mm":17.5,"risk_score":0.489,"risk_level":"Medium"},{"date":"2026-07-18","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":4.9,"antecedent_3day_mm":18.3,"risk_score":0.492,"risk_level":"Medium"},{"date":"2026-07-19","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":6.4,"antecedent_3day_mm":18.6,"risk_score":0.494,"risk_level":"Medium"},{"date":"2026-07-20","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":3.8,"antecedent_3day_mm":15.1,"risk_score":0.481,"risk_level":"Medium"},{"date":"2026-07-21","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":2.8,"antecedent_3day_mm":13.0,"risk_score":0.473,"risk_level":"Medium"},{"date":"2026-07-22","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":3.9,"antecedent_3day_mm":10.5,"risk_score":0.464,"risk_level":"Medium"},{"date":"2026-07-23","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":5.1,"antecedent_3day_mm":11.8,"risk_score":0.468,"risk_level":"Medium"},{"date":"2026-07-24","site_id":"GM02","site_name":"Dorze","lat":6.25,"lon":37.5333,"susceptibility":0.85,"today_rainfall_mm":7.1,"antecedent_3day_mm":16.1,"risk_score":0.484,"risk_level":"Medium"},{"date":"2026-06-25","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":0.4,"antecedent_3day_mm":0.4,"risk_score":0.311,"risk_level":"Low"},{"date":"2026-06-26","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":0.7,"antecedent_3day_mm":1.1,"risk_score":0.313,"risk_level":"Low"},{"date":"2026-06-27","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":7.6,"antecedent_3day_mm":8.7,"risk_score":0.333,"risk_level":"Low"},{"date":"2026-06-28","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":1.8,"antecedent_3day_mm":10.1,"risk_score":0.337,"risk_level":"Low"},{"date":"2026-06-29","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":4.5,"antecedent_3day_mm":13.9,"risk_score":0.347,"risk_level":"Low"},{"date":"2026-06-30","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":5.7,"antecedent_3day_mm":12.0,"risk_score":0.342,"risk_level":"Low"},{"date":"2026-07-01","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":3.7,"antecedent_3day_mm":13.9,"risk_score":0.347,"risk_level":"Low"},{"date":"2026-07-02","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":0.7,"antecedent_3day_mm":10.1,"risk_score":0.337,"risk_level":"Low"},{"date":"2026-07-03","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":0.6,"antecedent_3day_mm":5.0,"risk_score":0.323,"risk_level":"Low"},{"date":"2026-07-04","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":7.7,"antecedent_3day_mm":9.0,"risk_score":0.334,"risk_level":"Low"},{"date":"2026-07-05","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":2.8,"antecedent_3day_mm":11.1,"risk_score":0.34,"risk_level":"Low"},{"date":"2026-07-06","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":5.6,"antecedent_3day_mm":16.1,"risk_score":0.353,"risk_level":"Medium"},{"date":"2026-07-07","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":3.6,"antecedent_3day_mm":12.0,"risk_score":0.342,"risk_level":"Low"},{"date":"2026-07-08","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":4.9,"antecedent_3day_mm":14.1,"risk_score":0.348,"risk_level":"Low"},{"date":"2026-07-09","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":35.4,"antecedent_3day_mm":43.9,"risk_score":0.428,"risk_level":"Medium"},{"date":"2026-07-10","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":44.3,"antecedent_3day_mm":84.6,"risk_score":0.537,"risk_level":"Medium"},{"date":"2026-07-11","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":50.5,"antecedent_3day_mm":130.2,"risk_score":0.66,"risk_level":"High"},{"date":"2026-07-12","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":56.0,"antecedent_3day_mm":150.8,"risk_score":0.713,"risk_level":"High"},{"date":"2026-07-13","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":45.2,"antecedent_3day_mm":151.7,"risk_score":0.713,"risk_level":"High"},{"date":"2026-07-14","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":1.2,"antecedent_3day_mm":102.4,"risk_score":0.585,"risk_level":"High"},{"date":"2026-07-15","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":1.6,"antecedent_3day_mm":48.0,"risk_score":0.439,"risk_level":"Medium"},{"date":"2026-07-16","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":2.4,"antecedent_3day_mm":5.2,"risk_score":0.324,"risk_level":"Low"},{"date":"2026-07-17","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":2.8,"antecedent_3day_mm":6.8,"risk_score":0.328,"risk_level":"Low"},{"date":"2026-07-18","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":6.3,"antecedent_3day_mm":11.5,"risk_score":0.341,"risk_level":"Low"},{"date":"2026-07-19","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":1.6,"antecedent_3day_mm":10.7,"risk_score":0.339,"risk_level":"Low"},{"date":"2026-07-20","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":1.5,"antecedent_3day_mm":9.4,"risk_score":0.335,"risk_level":"Low"},{"date":"2026-07-21","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":7.8,"antecedent_3day_mm":10.9,"risk_score":0.339,"risk_level":"Low"},{"date":"2026-07-22","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":7.9,"antecedent_3day_mm":17.2,"risk_score":0.356,"risk_level":"Medium"},{"date":"2026-07-23","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":6.7,"antecedent_3day_mm":22.4,"risk_score":0.37,"risk_level":"Medium"},{"date":"2026-07-24","site_id":"GM03","site_name":"Dita Center","lat":6.1167,"lon":37.4833,"susceptibility":0.62,"today_rainfall_mm":3.5,"antecedent_3day_mm":18.1,"risk_score":0.359,"risk_level":"Medium"},{"date":"2026-06-25","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":6.6,"antecedent_3day_mm":6.6,"risk_score":0.254,"risk_level":"Low"},{"date":"2026-06-26","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":3.3,"antecedent_3day_mm":9.9,"risk_score":0.261,"risk_level":"Low"},{"date":"2026-06-27","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":5.0,"antecedent_3day_mm":14.9,"risk_score":0.271,"risk_level":"Low"},{"date":"2026-06-28","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.5,"antecedent_3day_mm":12.8,"risk_score":0.267,"risk_level":"Low"},{"date":"2026-06-29","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":5.5,"antecedent_3day_mm":15.0,"risk_score":0.271,"risk_level":"Low"},{"date":"2026-06-30","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.5,"antecedent_3day_mm":14.5,"risk_score":0.27,"risk_level":"Low"},{"date":"2026-07-01","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":7.4,"antecedent_3day_mm":17.4,"risk_score":0.276,"risk_level":"Low"},{"date":"2026-07-02","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":2.4,"antecedent_3day_mm":14.3,"risk_score":0.27,"risk_level":"Low"},{"date":"2026-07-03","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.1,"antecedent_3day_mm":13.9,"risk_score":0.269,"risk_level":"Low"},{"date":"2026-07-04","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":0.6,"antecedent_3day_mm":7.1,"risk_score":0.255,"risk_level":"Low"},{"date":"2026-07-05","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.0,"antecedent_3day_mm":8.7,"risk_score":0.258,"risk_level":"Low"},{"date":"2026-07-06","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":0.5,"antecedent_3day_mm":5.1,"risk_score":0.251,"risk_level":"Low"},{"date":"2026-07-07","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":5.7,"antecedent_3day_mm":10.2,"risk_score":0.261,"risk_level":"Low"},{"date":"2026-07-08","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":3.9,"antecedent_3day_mm":10.1,"risk_score":0.261,"risk_level":"Low"},{"date":"2026-07-09","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":27.0,"antecedent_3day_mm":36.6,"risk_score":0.316,"risk_level":"Low"},{"date":"2026-07-10","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":49.2,"antecedent_3day_mm":80.1,"risk_score":0.407,"risk_level":"Medium"},{"date":"2026-07-11","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":41.9,"antecedent_3day_mm":118.1,"risk_score":0.486,"risk_level":"Medium"},{"date":"2026-07-12","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":27.4,"antecedent_3day_mm":118.5,"risk_score":0.486,"risk_level":"Medium"},{"date":"2026-07-13","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":48.7,"antecedent_3day_mm":118.0,"risk_score":0.485,"risk_level":"Medium"},{"date":"2026-07-14","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":6.0,"antecedent_3day_mm":82.1,"risk_score":0.411,"risk_level":"Medium"},{"date":"2026-07-15","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":7.6,"antecedent_3day_mm":62.3,"risk_score":0.37,"risk_level":"Medium"},{"date":"2026-07-16","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":5.1,"antecedent_3day_mm":18.7,"risk_score":0.279,"risk_level":"Low"},{"date":"2026-07-17","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":1.8,"antecedent_3day_mm":14.5,"risk_score":0.27,"risk_level":"Low"},{"date":"2026-07-18","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":6.1,"antecedent_3day_mm":13.0,"risk_score":0.267,"risk_level":"Low"},{"date":"2026-07-19","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":3.9,"antecedent_3day_mm":11.8,"risk_score":0.265,"risk_level":"Low"},{"date":"2026-07-20","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.8,"antecedent_3day_mm":14.8,"risk_score":0.271,"risk_level":"Low"},{"date":"2026-07-21","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":0.6,"antecedent_3day_mm":9.3,"risk_score":0.259,"risk_level":"Low"},{"date":"2026-07-22","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":4.9,"antecedent_3day_mm":10.3,"risk_score":0.261,"risk_level":"Low"},{"date":"2026-07-23","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":1.0,"antecedent_3day_mm":6.5,"risk_score":0.254,"risk_level":"Low"},{"date":"2026-07-24","site_id":"GM04","site_name":"Kucha","lat":6.4167,"lon":36.95,"susceptibility":0.48,"today_rainfall_mm":5.1,"antecedent_3day_mm":11.0,"risk_score":0.263,"risk_level":"Low"},{"date":"2026-06-25","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.8,"antecedent_3day_mm":0.8,"risk_score":0.408,"risk_level":"Medium"},{"date":"2026-06-26","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":1.9,"antecedent_3day_mm":2.7,"risk_score":0.414,"risk_level":"Medium"},{"date":"2026-06-27","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":4.7,"antecedent_3day_mm":7.4,"risk_score":0.431,"risk_level":"Medium"},{"date":"2026-06-28","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":1.1,"antecedent_3day_mm":7.7,"risk_score":0.432,"risk_level":"Medium"},{"date":"2026-06-29","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.8,"antecedent_3day_mm":6.6,"risk_score":0.428,"risk_level":"Medium"},{"date":"2026-06-30","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":5.0,"antecedent_3day_mm":6.9,"risk_score":0.429,"risk_level":"Medium"},{"date":"2026-07-01","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":2.9,"antecedent_3day_mm":8.7,"risk_score":0.436,"risk_level":"Medium"},{"date":"2026-07-02","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":4.0,"antecedent_3day_mm":11.9,"risk_score":0.447,"risk_level":"Medium"},{"date":"2026-07-03","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":1.3,"antecedent_3day_mm":8.2,"risk_score":0.434,"risk_level":"Medium"},{"date":"2026-07-04","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":4.5,"antecedent_3day_mm":9.8,"risk_score":0.439,"risk_level":"Medium"},{"date":"2026-07-05","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":6.4,"antecedent_3day_mm":12.2,"risk_score":0.448,"risk_level":"Medium"},{"date":"2026-07-06","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":5.8,"antecedent_3day_mm":16.7,"risk_score":0.464,"risk_level":"Medium"},{"date":"2026-07-07","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":7.1,"antecedent_3day_mm":19.3,"risk_score":0.473,"risk_level":"Medium"},{"date":"2026-07-08","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":1.7,"antecedent_3day_mm":14.6,"risk_score":0.456,"risk_level":"Medium"},{"date":"2026-07-09","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":42.7,"antecedent_3day_mm":51.5,"risk_score":0.586,"risk_level":"High"},{"date":"2026-07-10","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":31.3,"antecedent_3day_mm":75.7,"risk_score":0.671,"risk_level":"High"},{"date":"2026-07-11","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":60.3,"antecedent_3day_mm":134.3,"risk_score":0.876,"risk_level":"Very High"},{"date":"2026-07-12","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":28.4,"antecedent_3day_mm":120.0,"risk_score":0.826,"risk_level":"Very High"},{"date":"2026-07-13","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":27.8,"antecedent_3day_mm":116.5,"risk_score":0.814,"risk_level":"Very High"},{"date":"2026-07-14","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":5.9,"antecedent_3day_mm":62.1,"risk_score":0.623,"risk_level":"High"},{"date":"2026-07-15","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":2.9,"antecedent_3day_mm":36.6,"risk_score":0.533,"risk_level":"Medium"},{"date":"2026-07-16","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.7,"antecedent_3day_mm":9.5,"risk_score":0.438,"risk_level":"Medium"},{"date":"2026-07-17","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":4.3,"antecedent_3day_mm":7.9,"risk_score":0.433,"risk_level":"Medium"},{"date":"2026-07-18","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":1.6,"antecedent_3day_mm":6.6,"risk_score":0.428,"risk_level":"Medium"},{"date":"2026-07-19","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":5.8,"antecedent_3day_mm":11.7,"risk_score":0.446,"risk_level":"Medium"},{"date":"2026-07-20","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":2.8,"antecedent_3day_mm":10.2,"risk_score":0.441,"risk_level":"Medium"},{"date":"2026-07-21","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.8,"antecedent_3day_mm":9.4,"risk_score":0.438,"risk_level":"Medium"},{"date":"2026-07-22","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.0,"antecedent_3day_mm":3.6,"risk_score":0.418,"risk_level":"Medium"},{"date":"2026-07-23","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":3.1,"antecedent_3day_mm":3.9,"risk_score":0.419,"risk_level":"Medium"},{"date":"2026-07-24","site_id":"GM05","site_name":"Boreda","lat":6.1667,"lon":37.3,"susceptibility":0.81,"today_rainfall_mm":0.7,"antecedent_3day_mm":3.8,"risk_score":0.418,"risk_level":"Medium"},{"date":"2026-06-25","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":4.7,"antecedent_3day_mm":4.7,"risk_score":0.182,"risk_level":"Low"},{"date":"2026-06-26","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":4.4,"antecedent_3day_mm":9.1,"risk_score":0.189,"risk_level":"Low"},{"date":"2026-06-27","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":0.5,"antecedent_3day_mm":9.6,"risk_score":0.19,"risk_level":"Low"},{"date":"2026-06-28","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":3.4,"antecedent_3day_mm":8.3,"risk_score":0.188,"risk_level":"Low"},{"date":"2026-06-29","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":4.6,"antecedent_3day_mm":8.5,"risk_score":0.188,"risk_level":"Low"},{"date":"2026-06-30","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":4.0,"antecedent_3day_mm":12.0,"risk_score":0.193,"risk_level":"Low"},{"date":"2026-07-01","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.0,"antecedent_3day_mm":10.6,"risk_score":0.191,"risk_level":"Low"},{"date":"2026-07-02","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.7,"antecedent_3day_mm":8.7,"risk_score":0.188,"risk_level":"Low"},{"date":"2026-07-03","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.7,"antecedent_3day_mm":7.4,"risk_score":0.186,"risk_level":"Low"},{"date":"2026-07-04","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":6.3,"antecedent_3day_mm":11.7,"risk_score":0.193,"risk_level":"Low"},{"date":"2026-07-05","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":0.6,"antecedent_3day_mm":9.6,"risk_score":0.19,"risk_level":"Low"},{"date":"2026-07-06","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.5,"antecedent_3day_mm":9.4,"risk_score":0.189,"risk_level":"Low"},{"date":"2026-07-07","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.8,"antecedent_3day_mm":5.9,"risk_score":0.184,"risk_level":"Low"},{"date":"2026-07-08","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":2.3,"antecedent_3day_mm":7.6,"risk_score":0.187,"risk_level":"Low"},{"date":"2026-07-09","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":60.2,"antecedent_3day_mm":65.3,"risk_score":0.274,"risk_level":"Low"},{"date":"2026-07-10","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":39.9,"antecedent_3day_mm":102.4,"risk_score":0.33,"risk_level":"Low"},{"date":"2026-07-11","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":45.0,"antecedent_3day_mm":145.1,"risk_score":0.395,"risk_level":"Medium"},{"date":"2026-07-12","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":43.3,"antecedent_3day_mm":128.2,"risk_score":0.369,"risk_level":"Medium"},{"date":"2026-07-13","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":58.1,"antecedent_3day_mm":146.4,"risk_score":0.397,"risk_level":"Medium"},{"date":"2026-07-14","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":3.8,"antecedent_3day_mm":105.2,"risk_score":0.335,"risk_level":"Low"},{"date":"2026-07-15","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":5.5,"antecedent_3day_mm":67.4,"risk_score":0.277,"risk_level":"Low"},{"date":"2026-07-16","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":6.8,"antecedent_3day_mm":16.1,"risk_score":0.199,"risk_level":"Low"},{"date":"2026-07-17","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":4.0,"antecedent_3day_mm":16.3,"risk_score":0.2,"risk_level":"Low"},{"date":"2026-07-18","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":1.9,"antecedent_3day_mm":12.7,"risk_score":0.194,"risk_level":"Low"},{"date":"2026-07-19","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":7.9,"antecedent_3day_mm":13.8,"risk_score":0.196,"risk_level":"Low"},{"date":"2026-07-20","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":6.5,"antecedent_3day_mm":16.3,"risk_score":0.2,"risk_level":"Low"},{"date":"2026-07-21","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":3.8,"antecedent_3day_mm":18.2,"risk_score":0.203,"risk_level":"Low"},{"date":"2026-07-22","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":7.3,"antecedent_3day_mm":17.6,"risk_score":0.202,"risk_level":"Low"},{"date":"2026-07-23","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":5.7,"antecedent_3day_mm":16.8,"risk_score":0.2,"risk_level":"Low"},{"date":"2026-07-24","site_id":"GM06","site_name":"Arba Minch Zuria","lat":6.0333,"lon":37.55,"susceptibility":0.35,"today_rainfall_mm":7.6,"antecedent_3day_mm":20.6,"risk_score":0.206,"risk_level":"Low"}];
+
+const RISK_COLOR = {
+  "Low": "#7fa66f",
+  "Medium": "#d9a544",
+  "High": "#c1622b",
+  "Very High": "#e08a8a"
+};
+const RISK_CLASS = {
+  "Low": "r-low", "Medium": "r-medium", "High": "r-high", "Very High": "r-veryhigh"
+};
+
+const dates = [...new Set(DATA.map(d => d.date))].sort();
+const sites = [...new Map(DATA.map(d => [d.site_id, d])).values()]
+  .map(d => ({site_id: d.site_id, site_name: d.site_name, lat: d.lat, lon: d.lon}));
+
+let selectedSite = sites[0].site_id;
+let dayIndex = 0;
+let playing = false, playTimer = null;
+
+const map = L.map('map', {zoomControl:true, attributionControl:false}).setView([6.18, 37.45], 10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:14}).addTo(map);
+
+const markers = {};
+sites.forEach(s => {
+  const m = L.circleMarker([s.lat, s.lon], {
+    radius:10, color:'#1c231f', weight:1.5, fillColor:'#7fa66f', fillOpacity:0.9
+  }).addTo(map);
+  m.bindTooltip(s.site_name, {permanent:false});
+  m.on('click', () => { selectedSite = s.site_id; render(); });
+  markers[s.site_id] = m;
+});
+
+function recordsFor(date){
+  return DATA.filter(d => d.date === date);
+}
+function seriesFor(site_id){
+  return DATA.filter(d => d.site_id === site_id).sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+function render(){
+  const date = dates[dayIndex];
+  document.getElementById('dateDisplay').textContent = date;
+  const todays = recordsFor(date);
+
+  todays.forEach(r => {
+    const m = markers[r.site_id];
+    m.setStyle({fillColor: RISK_COLOR[r.risk_level], radius: 8 + r.risk_score*10});
+  });
+
+  const list = document.getElementById('siteList');
+  list.innerHTML = '';
+  todays.sort((a,b)=>b.risk_score-a.risk_score).forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'site-row';
+    row.style.cursor = 'pointer';
+    row.innerHTML = `
+      <div>
+        <div class="site-name">${r.site_name}${r.site_id===selectedSite?' *':''}</div>
+        <div class="site-meta">rain ${r.today_rainfall_mm}mm - 3d ${r.antecedent_3day_mm}mm</div>
+      </div>
+      <div class="risk-pill ${RISK_CLASS[r.risk_level]}">${r.risk_level}</div>
+    `;
+    row.onclick = () => { selectedSite = r.site_id; render(); };
+    list.appendChild(row);
+  });
+
+  drawChart();
+}
+
+function drawChart(){
+  const series = seriesFor(selectedSite);
+  const siteName = series[0].site_name;
+  document.getElementById('chartTitle').textContent = `Rainfall and risk - ${siteName}`;
+  const svg = document.getElementById('rainSvg');
+  const W = 900, H = 160, pad = 20;
+  const maxRain = Math.max(...series.map(d=>d.today_rainfall_mm), 10);
+  const n = series.length;
+  const barW = (W - pad*2) / n * 0.62;
+  const step = (W - pad*2) / n;
+
+  let bars = '', line = '', dots = '';
+  series.forEach((d,i) => {
+    const x = pad + i*step + (step-barW)/2;
+    const bh = (d.today_rainfall_mm / maxRain) * (H - pad*2 - 20);
+    const y = H - pad - bh;
+    const isSel = i === dayIndex;
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${bh}" fill="${isSel?'#6f97a3':'#3a453c'}" rx="1"></rect>`;
+
+    const lx = pad + i*step + step/2;
+    const ly = H - pad - d.risk_score * (H - pad*2 - 10);
+    line += `${i===0?'M':'L'}${lx},${ly} `;
+    dots += `<circle cx="${lx}" cy="${ly}" r="${isSel?4:2}" fill="${RISK_COLOR[d.risk_level]}"></circle>`;
+  });
+
+  svg.innerHTML = `
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#3a453c" stroke-width="1"/>
+    ${bars}
+    <path d="${line}" fill="none" stroke="#d9a544" stroke-width="2"/>
+    ${dots}
+  `;
+}
+
+document.getElementById('daySlider').addEventListener('input', (e) => {
+  dayIndex = parseInt(e.target.value);
+  render();
+});
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing;
+  const btn = document.getElementById('playBtn');
+  if(playing){
+    btn.textContent = 'Pause';
+    playTimer = setInterval(() => {
+      dayIndex = (dayIndex + 1) % dates.length;
+      document.getElementById('daySlider').value = dayIndex;
+      render();
+    }, 550);
+  } else {
+    btn.textContent = 'Play 30 days';
+    clearInterval(playTimer);
+  }
+});
+
+render();
+</script>
+</body>
+</html>
