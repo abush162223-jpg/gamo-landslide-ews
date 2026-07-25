@@ -1,0 +1,7 @@
+site_id,site_name,woreda,latitude,longitude,avg_slope_deg,soil_depth_m,soil_type,geology,land_cover,susceptibility_score
+GM01,Chencha Town,Chencha,6.2833,37.5667,32,1.8,Clay loam,Weathered volcanic,Sparse forest,0.78
+GM02,Dorze,Chencha,6.2500,37.5333,38,1.2,Silty clay,Weathered volcanic,Cultivated terraces,0.85
+GM03,Dita Center,Dita,6.1167,37.4833,27,2.1,Sandy clay,Basalt/ash,Grassland,0.62
+GM04,Kucha,Kucha,6.4167,36.9500,22,2.5,Loam,Basalt,Cropland,0.48
+GM05,Boreda,Boreda,6.1667,37.3000,35,1.5,Clay,Weathered volcanic,Shrubland,0.81
+GM06,Arba Minch Zuria,Arba Minch Zuria,6.0333,37.5500,18,3.0,Loam,Alluvial/basalt,Mixed cropland,0.35
